@@ -12,7 +12,7 @@ require (
 	github.com/grokify/html-strip-tags-go v0.0.0-20200923094847-079d207a09f1
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/joho/godotenv v1.3.0
-	github.com/satori/go.uuid v1.2.0
+	github.com/satori/go.uuid v1.2.1-0.20180404165556-75cca531ea76
 	go.uber.org/zap v1.16.0
 	golang.org/x/net v0.24.0
 	gorm.io/driver/sqlite v1.5.5
