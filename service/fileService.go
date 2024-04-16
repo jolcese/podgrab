@@ -34,7 +34,12 @@ func Download(link string, episodeTitle string, podcastName string, prefix strin
 		return "", err
 	}
 
-	req, err := getRequest(link)
+	var (
+		req  *http.Request
+		resp *http.Response
+	)
+
+	req, err = getRequest(link)
 	if err != nil {
 		Logger.Errorw("Error creating request: "+link, err)
 	}
@@ -43,10 +48,22 @@ func Download(link string, episodeTitle string, podcastName string, prefix strin
 	req.Header.Add("Accept-Encoding", "charset=utf-8")
 	req.Header.Set("User-Agent", "")
 
-	resp, err := client.Do(req)
+	resp, err = client.Do(req)
 	if err != nil {
 		Logger.Errorw("Error getting response: "+link, err)
 		return "", err
+	}
+	if resp.StatusCode >= 400 {
+		req, err = getRequest(link)
+		if err != nil {
+			Logger.Errorw("Error creating request: "+link, err)
+		}
+
+		resp, err = client.Do(req)
+		if err != nil {
+			Logger.Errorw("Error getting response: "+link, err)
+			return "", err
+		}
 	}
 
 	fileName := getFileName(link, episodeTitle, ".mp3")
