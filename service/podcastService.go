@@ -4,8 +4,9 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -35,7 +36,7 @@ func ParseOpml(content string) (model.OpmlModel, error) {
 	return response, err
 }
 
-//FetchURL is
+// FetchURL is
 func FetchURL(url string) (model.PodcastData, []byte, error) {
 	body, err := makeQuery(url)
 	if err != nil {
@@ -566,6 +567,35 @@ func CheckMissingFiles() error {
 	return nil
 }
 
+func ClearEpisodeFiles() error {
+	fmt.Println("Clearning Episode Files")
+	var podcasts []db.Podcast
+	err := db.GetAllPodcasts(&podcasts, "")
+	setting := db.GetOrCreateSetting()
+	var maxDownloadKeep int = setting.MaxDownloadKeep
+
+	if err != nil {
+		return err
+	}
+	for _, pod := range podcasts {
+		var episodes []db.PodcastItem
+		err = db.GetAllPodcastItemsByPodcastId(pod.ID, &episodes)
+		if err != nil {
+			return err
+		}
+		downloadedCount := 0
+		for _, episode := range episodes {
+			if downloadedCount >= maxDownloadKeep && episode.DownloadStatus == 2 {
+				DeleteEpisodeFile(episode.ID)
+			}
+			if episode.DownloadStatus == 2 {
+				downloadedCount = downloadedCount + 1
+			}
+		}
+	}
+	return nil
+}
+
 func DeleteEpisodeFile(podcastItemId string) error {
 	var podcastItem db.PodcastItem
 	err := db.GetPodcastItemById(podcastItemId, &podcastItem)
@@ -707,14 +737,24 @@ func DeleteTag(id string) error {
 
 }
 
-func makeQuery(url string) ([]byte, error) {
+func makeQuery(path string) ([]byte, error) {
 	//link := "https://www.goodreads.com/search/index.xml?q=Good%27s+Omens&key=" + "jCmNlIXjz29GoB8wYsrd0w"
 	//link := "https://www.goodreads.com/search/index.xml?key=jCmNlIXjz29GoB8wYsrd0w&q=Ender%27s+Game"
-	fmt.Println(url)
-	req, err := http.NewRequest("GET", url, nil)
+	fmt.Println(path)
+	url, err := url.Parse(path)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println(url.Hostname())
+	req, err := http.NewRequest("GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Host = url.Hostname()
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Accept-Encoding", "charset=utf-8")
+	req.Header.Set("User-Agent", "")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -723,7 +763,10 @@ func makeQuery(url string) ([]byte, error) {
 
 	defer resp.Body.Close()
 	fmt.Println("Response status:", resp.Status)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
 	return body, nil
 
@@ -764,7 +807,7 @@ func GetSearchFromPodcastIndex(pod *podcastindex.Podcast) *model.CommonSearchRes
 
 func UpdateSettings(downloadOnAdd bool, initialDownloadCount int, autoDownload bool,
 	appendDateToFileName bool, appendEpisodeNumberToFileName bool, darkMode bool, downloadEpisodeImages bool,
-	generateNFOFile bool, dontDownloadDeletedFromDisk bool, baseUrl string, maxDownloadConcurrency int, userAgent string) error {
+	generateNFOFile bool, dontDownloadDeletedFromDisk bool, baseUrl string, maxDownloadConcurrency int, maxDownloadKeep int, userAgent string) error {
 	setting := db.GetOrCreateSetting()
 
 	setting.AutoDownload = autoDownload
@@ -778,6 +821,7 @@ func UpdateSettings(downloadOnAdd bool, initialDownloadCount int, autoDownload b
 	setting.DontDownloadDeletedFromDisk = dontDownloadDeletedFromDisk
 	setting.BaseUrl = baseUrl
 	setting.MaxDownloadConcurrency = maxDownloadConcurrency
+	setting.MaxDownloadKeep = maxDownloadKeep
 	setting.UserAgent = userAgent
 
 	return db.UpdateSettings(setting)

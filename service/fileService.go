@@ -28,15 +28,42 @@ func Download(link string, episodeTitle string, podcastName string, prefix strin
 	}
 	client := httpClient()
 
-	req, err := getRequest(link)
+	url, err := url.Parse(link)
+	if err != nil {
+		Logger.Errorw("Failed to parse url: "+link, err)
+		return "", err
+	}
+
+	var (
+		req  *http.Request
+		resp *http.Response
+	)
+
+	req, err = getRequest(link)
 	if err != nil {
 		Logger.Errorw("Error creating request: "+link, err)
 	}
+	req.Host = url.Hostname()
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Accept-Encoding", "charset=utf-8")
+	req.Header.Set("User-Agent", "")
 
-	resp, err := client.Do(req)
+	resp, err = client.Do(req)
 	if err != nil {
 		Logger.Errorw("Error getting response: "+link, err)
 		return "", err
+	}
+	if resp.StatusCode >= 400 {
+		req, err = getRequest(link)
+		if err != nil {
+			Logger.Errorw("Error creating request: "+link, err)
+		}
+
+		resp, err = client.Do(req)
+		if err != nil {
+			Logger.Errorw("Error getting response: "+link, err)
+			return "", err
+		}
 	}
 
 	fileName := getFileName(link, episodeTitle, ".mp3")
@@ -107,12 +134,22 @@ func DownloadPodcastCoverImage(link string, podcastName string) (string, error) 
 	if link == "" {
 		return "", errors.New("Download path empty")
 	}
+	url, err := url.Parse(link)
+	if err != nil {
+		Logger.Errorw("Failed to parse url: "+link, err)
+		return "", err
+	}
+
 	client := httpClient()
 	req, err := getRequest(link)
 	if err != nil {
 		Logger.Errorw("Error creating request: "+link, err)
 		return "", err
 	}
+	req.Host = url.Hostname()
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Accept-Encoding", "charset=utf-8")
+	req.Header.Set("User-Agent", "")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -150,12 +187,22 @@ func DownloadImage(link string, episodeId string, podcastName string) (string, e
 	if link == "" {
 		return "", errors.New("Download path empty")
 	}
+	url, err := url.Parse(link)
+	if err != nil {
+		Logger.Errorw("Failed to parse url: "+link, err)
+		return "", err
+	}
+
 	client := httpClient()
 	req, err := getRequest(link)
 	if err != nil {
 		Logger.Errorw("Error creating request: "+link, err)
 		return "", err
 	}
+	req.Host = url.Hostname()
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Accept-Encoding", "charset=utf-8")
+	req.Header.Set("User-Agent", "")
 
 	resp, err := client.Do(req)
 	if err != nil {
